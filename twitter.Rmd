@@ -1,0 +1,38 @@
+---
+title: "twitter"
+author: "Max Weiss"
+date: "10/31/2018"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE)
+
+library(dplyr)
+library(tidyverse)
+library(stringr)
+library(lubridate)
+
+```
+
+```{r}
+
+trump <- read_csv("https://raw.githubusercontent.com/fivethirtyeight/data/master/twitter-ratio/realDonaldTrump.csv")
+
+obama <- read_csv("https://raw.githubusercontent.com/fivethirtyeight/data/master/twitter-ratio/BarackObama.csv")
+
+sens <- read_csv("https://raw.githubusercontent.com/fivethirtyeight/data/master/twitter-ratio/senators.csv")
+
+trump_obama <- rbind(trump, obama) 
+
+trump_obama2 <- trump_obama %>%
+  select(created_at, user, retweets) %>%
+  mutate(created_at = mdy_hm(created_at)) %>%
+  filter(!is.na(created_at), !is.na(user)) %>%
+  filter(user == "BarackObama")
+
+ggplot(trump_obama2, aes(x = created_at, fill = user)) +
+  geom_histogram(bins = 300)
+
+```
+
