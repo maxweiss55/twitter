@@ -12,8 +12,25 @@ library(dplyr)
 library(tidyverse)
 library(stringr)
 library(lubridate)
+library(knitr)
 
 ```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 ```{r}
 
@@ -23,16 +40,47 @@ obama <- read_csv("https://raw.githubusercontent.com/fivethirtyeight/data/master
 
 sens <- read_csv("https://raw.githubusercontent.com/fivethirtyeight/data/master/twitter-ratio/senators.csv")
 
-trump_obama <- rbind(trump, obama) 
+obama <- obama %>%
+  mutate(bioguide_id = NA, party = NA, state = NA)
 
-trump_obama2 <- trump_obama %>%
+trump <- trump %>%
+  mutate(bioguide_id = NA, party = NA, state = NA)
+
+all_tweets <- rbind(trump, obama, sens)
+
+twitter <- read_csv("twitter/all_tweets.csv")
+
+twitter
+
+write.csv(all_tweets, file = "all_tweets.csv") 
+
+trump
+
+twitter2 <- twitter %>%
   select(created_at, user, retweets) %>%
   mutate(created_at = mdy_hm(created_at)) %>%
-  filter(!is.na(created_at), !is.na(user)) %>%
-  filter(user == "BarackObama")
+  filter(!is.na(created_at), !is.na(user), user %in% c("realDonaldTrump", "BarackObama"))
 
-ggplot(trump_obama2, aes(x = created_at, fill = user)) +
-  geom_histogram(bins = 300)
+twitter$created_at
+
+senators_mark <- twitter %>%
+  select(-text, -url) %>%
+  mutate(created_at = mdy_hm(created_at)) %>%
+  filter(!is.na(created_at), !is.na(user), user != "realDonaldTrump", user != "BarackObama")   
+
+senators_kable <- senators_mark %>%
+  mutate(Party = case_when(party == "D" ~ "Democrat", party == "R" ~ "Republican", party == "I" ~ "Independent")) %>%
+  group_by(Party) %>%
+  summarize("Total Senators" = n_distinct(user),
+            "Total Tweets" = n(),
+            "Average Replies" = round(mean(replies)),
+            "Average Retweets" = round(mean(retweets)),
+            "Average Favorites" = round(mean(favorites))) %>%
+  kable()
+
+
+senators_kable
+
+senators_mark
 
 ```
-
