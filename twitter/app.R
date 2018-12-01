@@ -6,6 +6,7 @@ library(lubridate)
 library(knitr)
 library(shiny)
 library(shinyjs)
+library(wordcloud2)
 
 twitter <- read_csv("all_tweets.csv")
 
@@ -34,7 +35,6 @@ summary <- twitter_clean %>%
             "Average Retweets" = round(mean(Retweets), digits = 0),
             "Average Favorites" = round(mean(Favorites), digits = 0))
 
-
 ui <- navbarPage("Presidential and Senate Twitter Activity: Trump's First 9 Months in Office",
                  
                  tabPanel("Summary Statistics", fluidPage(
@@ -62,7 +62,21 @@ ui <- navbarPage("Presidential and Senate Twitter Activity: Trump's First 9 Mont
                  tabPanel("Word Use Frequencies", fluidPage(
                    
                    # Application title
-                   titlePanel("Word Use Frequencies")
+                   titlePanel("Word Use Frequencies"),
+                   
+                   sidebarPanel(
+                     selectInput("group", "Group:", c("Senate Democrats", "Senate Republicans", 
+                                                      "All Senate", "Trump", "All"), "All"),
+                     textInput("word", "Search Any Word!")
+                   ),
+                   
+                   mainPanel(
+                     h2("Word Cloud: Word Use Frequency"),
+                     wordcloud2Output(outputId = "cloud"),
+                     
+                     h2("Word Use Frequency Table"),
+                     tableOutput("freqtable")                     
+                   )
                    
                  )),
                  
@@ -82,6 +96,8 @@ ui <- navbarPage("Presidential and Senate Twitter Activity: Trump's First 9 Mont
 
 # Server
 server <- function(input, output) {
+  
+  #SUMMARY
   
   output$densityplot <- renderPlot({
   ggplot(senators, aes(x = Time, fill = Party, color = Party)) +
@@ -109,6 +125,89 @@ server <- function(input, output) {
   output$summary <- renderTable(digits = 0, striped = TRUE, hover = TRUE, bordered = TRUE, {
     summary
   })
+  
+  
+  #WORDS
+  
+  output$cloud <- renderWordcloud2({
+    
+    if (input$group == "Senate Democrats") {
+      
+      cloud_count <- twitter_clean %>%
+        filter(Party == "Republican") %>%
+        unnest_tokens(word, Text) %>%
+        anti_join(stop_words) %>%
+        count(word) %>%
+        arrange(desc(n)) %>%
+        filter(word != "https", word != "t.co", word != "amp", word != "rt") %>%
+        head(n = 180)
+      
+      wordcloud2(cloud_count)
+      
+    } else if (input$group == "Senate Republicans") {
+      
+      cloud_count <- twitter_clean %>%
+        filter(Party == "Republican") %>%
+        unnest_tokens(word, Text) %>%
+        anti_join(stop_words) %>%
+        count(word) %>%
+        arrange(desc(n)) %>%
+        filter(word != "https", word != "t.co", word != "amp", word != "rt") %>%
+        head(n = 180)
+      
+      wordcloud2(cloud_count)
+      
+    } else if (input$group == "All Senate") {
+      
+      cloud_count <- twitter_clean %>%
+        filter(User != "realDonaldTrump") %>%
+        unnest_tokens(word, Text) %>%
+        anti_join(stop_words) %>%
+        count(word) %>%
+        arrange(desc(n)) %>%
+        filter(word != "https", word != "t.co", word != "amp", word != "rt") %>%
+        head(n = 180)
+      
+      wordcloud2(cloud_count)
+      
+    } else if (input$group == "Trump") {
+      
+      cloud_count <- twitter_clean %>%
+        filter(User == "realDonaldTrump") %>%
+        unnest_tokens(word, Text) %>%
+        anti_join(stop_words) %>%
+        count(word) %>%
+        arrange(desc(n)) %>%
+        filter(word != "https", word != "t.co", word != "amp", word != "rt") %>%
+        head(n = 180)
+      
+      wordcloud2(cloud_count)
+      
+    } else {
+      cloud_count <- twitter_clean %>%
+        unnest_tokens(word, Text) %>%
+        anti_join(stop_words) %>%
+        count(word) %>%
+        arrange(desc(n)) %>%
+        filter(word != "https", word != "t.co", word != "amp", word != "rt") %>%
+        head(n = 180)
+      
+      wordcloud2(cloud_count)
+    }
+  })
+    
+    output$freqtable <- renderTable({
+    
+    count_table <- twitter_clean %>%
+      unnest_tokens(word, Text) %>%
+      group_by(Party) %>%
+      filter(word == input$word) %>%
+      count(word)
+    
+    count_table
+    
+  })
+
   
 }
 

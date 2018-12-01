@@ -58,6 +58,36 @@ summary <- twitter_clean %>%
             "Average Favorites" = round(mean(Favorites))) %>%
   kable()
 
+
+count_r <- twitter_clean %>%
+  filter(Party == "Republican") %>%
+  unnest_tokens(word, Text) %>%
+  anti_join(stop_words) %>%
+  count(word) %>%
+  arrange(desc(n)) %>%
+  filter(word != "https", word != "t.co", word != "amp", word != "rt") %>%
+  head(n = 100)
+
+count_d <- twitter_clean %>%
+  filter(Party == "Democrat") %>%
+  unnest_tokens(word, Text) %>%
+  anti_join(stop_words) %>%
+  count(word) %>%
+  arrange(desc(n)) %>%
+  filter(word != "https", word != "t.co", word != "amp", word != "rt") %>%
+  head(n = 100)
+
+count_t <- twitter_clean %>%
+  filter(User == "realDonaldTrump") %>%
+  unnest_tokens(word, Text) %>%
+  anti_join(stop_words) %>%
+  count(word) %>%
+  arrange(desc(n)) %>%
+  filter(word != "https", word != "t.co", word != "amp", word != "rt") %>%
+  head(n = 100)
+
+wordcloud2(count_t)
+
 ```
 
 ```{r}
