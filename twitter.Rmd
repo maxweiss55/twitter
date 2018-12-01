@@ -13,6 +13,8 @@ library(tidyverse)
 library(stringr)
 library(lubridate)
 library(knitr)
+library(tidytext)
+data("stop_words")
 
 ```
 
@@ -35,7 +37,7 @@ all_tweets <- rbind(trump, obama, sens)
 
 write.csv(all_tweets, file = "all_tweets.csv") 
 
-twitter <- read_csv("twitter/all_tweets.csv")
+twitter <- read_csv("all_tweets.csv")
 
 twitter_clean <- twitter %>%
   select(user, created_at, text, replies, retweets, favorites, party, state) %>%
@@ -55,6 +57,18 @@ summary <- twitter_clean %>%
             "Average Retweets" = round(mean(Retweets)),
             "Average Favorites" = round(mean(Favorites))) %>%
   kable()
+
+```
+
+```{r}
+
+twitter_clean %>%
+  unnest_tokens(word, Text) %>%
+  anti_join(stop_words) %>%
+  count(word) %>%
+  arrange(desc(n))
+
+
 
 ```
 
