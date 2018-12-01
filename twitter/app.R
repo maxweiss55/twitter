@@ -7,6 +7,10 @@ library(knitr)
 library(shiny)
 library(shinyjs)
 library(wordcloud2)
+library(tidytext)
+library(plotly)
+library(gganimate)
+library(shinythemes)
 
 twitter <- read_csv("all_tweets.csv")
 
@@ -37,7 +41,7 @@ summary <- twitter_clean %>%
 
 ui <- navbarPage("Presidential and Senate Twitter Activity: Trump's First 9 Months in Office",
                  
-                 tabPanel("Summary Statistics", fluidPage(
+                 tabPanel("Summary Statistics", fluidPage(theme = shinytheme("cerulean"),
                    
                    # Application title
                    titlePanel("Summary Statistics"),
@@ -48,7 +52,7 @@ ui <- navbarPage("Presidential and Senate Twitter Activity: Trump's First 9 Mont
                                  "Number of bins:",
                                  min = 1,
                                  max = 300,
-                                 value = 30)
+                                 value = 150)
                    ),
                    
                    mainPanel(
@@ -59,7 +63,7 @@ ui <- navbarPage("Presidential and Senate Twitter Activity: Trump's First 9 Mont
                 
                  )),
                  
-                 tabPanel("Word Use Frequencies", fluidPage(
+                 tabPanel("Word Use Frequencies", fluidPage(theme = shinytheme("cerulean"),
                    
                    # Application title
                    titlePanel("Word Use Frequencies"),
@@ -67,7 +71,7 @@ ui <- navbarPage("Presidential and Senate Twitter Activity: Trump's First 9 Mont
                    sidebarPanel(
                      selectInput("group", "Group:", c("Senate Democrats", "Senate Republicans", 
                                                       "All Senate", "Trump", "All"), "All"),
-                     textInput("word", "Search Any Word!")
+                     textInput("word", "Search Any Word!", "word")
                    ),
                    
                    mainPanel(
@@ -75,19 +79,30 @@ ui <- navbarPage("Presidential and Senate Twitter Activity: Trump's First 9 Mont
                      wordcloud2Output(outputId = "cloud"),
                      
                      h2("Word Use Frequency Table"),
-                     tableOutput("freqtable")                     
+                     tableOutput("freqtable"),
+                     
+                     h2("Relative Use of Word"),
+                     plotOutput("avg_use")
                    )
                    
                  )),
                  
-                 tabPanel("Random Tweet Generator", fluidPage(
+                 tabPanel("Random Tweet Generator", fluidPage(theme = shinytheme("cerulean"),
                    
                    # Application title
-                   titlePanel("Random Tweet Generator")
+                   titlePanel("Random Tweet Generator"),
                    
+                   sidebarPanel(
+                     actionButton("explore", "Explore!")
+                   ),
+                   
+                   mainPanel(
+                     HTML('<center><img src="tenor.gif" height = 400 width = 550 ></center>'),
+                     tableOutput("tweet_summary")
+                     )
                  )),
                  
-                 tabPanel("Polling Demogrs", fluidPage(
+                 tabPanel("Polling Demogrs", fluidPage(theme = shinytheme("cerulean"),
                    
                    # Application title
                    titlePanel("Polling Population Characteristics and Predictive Errorsci")
@@ -196,18 +211,47 @@ server <- function(input, output) {
     }
   })
     
-    output$freqtable <- renderTable({
+    output$freqtable <- renderTable(striped = TRUE, hover = TRUE, bordered = TRUE,
+                                    spacing = "l", {
     
     count_table <- twitter_clean %>%
       unnest_tokens(word, Text) %>%
       group_by(Party) %>%
       filter(word == input$word) %>%
-      count(word)
+      count(word) %>%
+      select(Party, n, word) %>%
+      rename("Group" = "Party", "Uses" = "n", "Word" = "word")
     
     count_table
     
   })
-
+    
+    output$avg_use <- renderPlot({
+      average_use <- twitter_clean %>%
+        group_by(Party) %>%
+        unnest_tokens(word, Text) %>%
+        count(word) %>%
+        group_by(Party) %>%
+        mutate(total_words = sum(n),
+               avg_count = n / total_words) %>%
+        filter(word == input$word) %>%
+        ggplot(aes(x = Party, y = avg_count)) +
+        geom_col(fill = "skyblue", color = "navy blue")
+      
+      average_use
+    })
+    
+   #RANDOMIZE
+    
+    output$tweet_summary <- renderTable({
+      
+      input$explore
+      
+      twitter_clean %>%
+        select(-Party, -State) %>%
+        sample_n(1) %>%
+        select(-Replies, -Retweets, -Favorites)
+    })
   
 }
 
