@@ -14,16 +14,19 @@ library(shinythemes)
 
 twitter <- read_csv("all_tweets.csv")
 
-twitter_clean <- twitter %>%
-  select(user, created_at, text, replies, retweets, favorites, party, state) %>%
-  mutate(created_at = mdy_hm(created_at),
-         party = case_when(party == "D" ~ "Democrat", 
-                           party == "R" ~ "Republican",
-                           party == "I" ~ "Independent",
-                           user == "realDonaldTrump" ~ "Trump")) %>%
-  filter(user != "BarackObama", created_at > "2017-01-20" & created_at < "2017-10-20") %>%
-  rename("User" = "user", "Time" = "created_at", "Text" = "text", "Replies" = "replies", 
-         "Retweets" = "retweets", "Favorites" = "favorites", "Party" = "party", "State" = "state")
+twitter_clean <- read_rds("twitter_clean1")
+wordcounts <- read_rds("wordcounts1")
+senator_party <- read_rds("senator_party1")
+wordcounts_senator <- read_rds("wordcounts_senator1")
+cloud_count <- read_rds("cloud_count1")
+count_table <- read_rds("count_table1")
+average_use <- read_rds("average_use1")
+relative_comp <- read_rds("relative_comp1")
+twitter_bing <- read_rds("twitter_bing1")
+twitter_nrc <- read_rds("twitter_nrc1")
+twitter_afinn <- read_rds("twitter_afinn1")
+senator_afinn <- read_rds("senator_afinn1")
+
 
 senators <- twitter_clean %>%
   filter(User != "realDonaldTrump")
@@ -38,6 +41,8 @@ summary <- twitter_clean %>%
             "Average Replies" = round(mean(Replies), digits = 0),
             "Average Retweets" = round(mean(Retweets), digits = 0),
             "Average Favorites" = round(mean(Favorites), digits = 0))
+
+
 
 ui <- navbarPage("Presidential and Senate Twitter Activity: Trump's First 9 Months in Office",
                  
@@ -56,8 +61,8 @@ ui <- navbarPage("Presidential and Senate Twitter Activity: Trump's First 9 Mont
                    ),
                    
                    mainPanel(
-                     plotOutput(outputId = "densityplot", height = 400),
-                     plotOutput(outputId = "densityplot2", height = 400),
+                     plotlyOutput(outputId = "densityplot", height = 400),
+                     plotlyOutput(outputId = "densityplot2", height = 400),
                      tableOutput("summary")
                    )
                 
@@ -69,8 +74,7 @@ ui <- navbarPage("Presidential and Senate Twitter Activity: Trump's First 9 Mont
                    titlePanel("Word Use Frequencies"),
                    
                    sidebarPanel(
-                     selectInput("group", "Group:", c("Senate Democrats", "Senate Republicans", 
-                                                      "All Senate", "Trump", "All"), "All"),
+                     selectInput("group", "Group:", c("Democrat", "Republican", "Trump"), "Democrat"),
                      textInput("word", "Search Any Word!", "word")
                    ),
                    
@@ -82,7 +86,10 @@ ui <- navbarPage("Presidential and Senate Twitter Activity: Trump's First 9 Mont
                      tableOutput("freqtable"),
                      
                      h2("Relative Use of Word"),
-                     plotOutput("avg_use")
+                     plotlyOutput("avg_use"),
+                     
+                     h2("Relative Word Comparison"),
+                     plotlyOutput("rel_use")
                    )
                    
                  )),
@@ -102,10 +109,24 @@ ui <- navbarPage("Presidential and Senate Twitter Activity: Trump's First 9 Mont
                      )
                  )),
                  
-                 tabPanel("Polling Demogrs", fluidPage(theme = shinytheme("cerulean"),
-                   
+                 tabPanel("Sentiment Analysis", fluidPage(theme = shinytheme("cerulean"),
+                                                          
                    # Application title
-                   titlePanel("Polling Population Characteristics and Predictive Errorsci")
+                   titlePanel("Sentiment Analysis"),        
+                   
+                   h2("Positivity and Negativity Sentiment Measures (Bing Lexicon)"),
+                   plotlyOutput("bing"),
+                                                          
+                   h2("Positivity and Negativity Sentiment Measures (NRC Lexicon)"),
+                   plotlyOutput("nrc"),
+                   
+                   h2("Positivity and Negativity Sentiment Measures (Afinn Lexicon)"),
+                   plotlyOutput("afinn"),
+                   
+                   
+                   h2("Positivity by Senator Account"),
+                   plotlyOutput("afinn_dem"),
+                   plotlyOutput("afinn_rep")
                  ))
                 )
 
@@ -114,7 +135,7 @@ server <- function(input, output) {
   
   #SUMMARY
   
-  output$densityplot <- renderPlot({
+  output$densityplot <- renderPlotly({
   ggplot(senators, aes(x = Time, fill = Party, color = Party)) +
       theme(plot.title = element_text(hjust = 0.5),
             plot.subtitle = element_text(hjust = 0.5),
@@ -126,7 +147,7 @@ server <- function(input, output) {
       geom_histogram(bins = input$bins)
   })
   
-  output$densityplot2 <- renderPlot({
+  output$densityplot2 <- renderPlotly({
     ggplot(trump, aes(x = Time)) +
       theme(plot.title = element_text(hjust = 0.5),
             plot.subtitle = element_text(hjust = 0.5),
@@ -145,114 +166,96 @@ server <- function(input, output) {
   #WORDS
   
   output$cloud <- renderWordcloud2({
+      
+     cloud_count2 <- cloud_count %>% filter(Party == input$group) %>%
+      count(word) %>%
+      arrange(desc(n)) %>%
+      head(n = 180)
     
-    if (input$group == "Senate Democrats") {
-      
-      cloud_count <- twitter_clean %>%
-        filter(Party == "Republican") %>%
-        unnest_tokens(word, Text) %>%
-        anti_join(stop_words) %>%
-        count(word) %>%
-        arrange(desc(n)) %>%
-        filter(word != "https", word != "t.co", word != "amp", word != "rt") %>%
-        head(n = 180)
-      
-      wordcloud2(cloud_count)
-      
-    } else if (input$group == "Senate Republicans") {
-      
-      cloud_count <- twitter_clean %>%
-        filter(Party == "Republican") %>%
-        unnest_tokens(word, Text) %>%
-        anti_join(stop_words) %>%
-        count(word) %>%
-        arrange(desc(n)) %>%
-        filter(word != "https", word != "t.co", word != "amp", word != "rt") %>%
-        head(n = 180)
-      
-      wordcloud2(cloud_count)
-      
-    } else if (input$group == "All Senate") {
-      
-      cloud_count <- twitter_clean %>%
-        filter(User != "realDonaldTrump") %>%
-        unnest_tokens(word, Text) %>%
-        anti_join(stop_words) %>%
-        count(word) %>%
-        arrange(desc(n)) %>%
-        filter(word != "https", word != "t.co", word != "amp", word != "rt") %>%
-        head(n = 180)
-      
-      wordcloud2(cloud_count)
-      
-    } else if (input$group == "Trump") {
-      
-      cloud_count <- twitter_clean %>%
-        filter(User == "realDonaldTrump") %>%
-        unnest_tokens(word, Text) %>%
-        anti_join(stop_words) %>%
-        count(word) %>%
-        arrange(desc(n)) %>%
-        filter(word != "https", word != "t.co", word != "amp", word != "rt") %>%
-        head(n = 180)
-      
-      wordcloud2(cloud_count)
-      
-    } else {
-      cloud_count <- twitter_clean %>%
-        unnest_tokens(word, Text) %>%
-        anti_join(stop_words) %>%
-        count(word) %>%
-        arrange(desc(n)) %>%
-        filter(word != "https", word != "t.co", word != "amp", word != "rt") %>%
-        head(n = 180)
-      
-      wordcloud2(cloud_count)
-    }
+      wordcloud2(cloud_count2)
+     
   })
     
     output$freqtable <- renderTable(striped = TRUE, hover = TRUE, bordered = TRUE,
                                     spacing = "l", {
     
-    count_table <- twitter_clean %>%
-      unnest_tokens(word, Text) %>%
-      group_by(Party) %>%
-      filter(word == input$word) %>%
-      count(word) %>%
-      select(Party, n, word) %>%
-      rename("Group" = "Party", "Uses" = "n", "Word" = "word")
-    
-    count_table
+    count_table %>% filter(Word == input$word)
     
   })
     
-    output$avg_use <- renderPlot({
-      average_use <- twitter_clean %>%
-        group_by(Party) %>%
-        unnest_tokens(word, Text) %>%
-        count(word) %>%
-        group_by(Party) %>%
-        mutate(total_words = sum(n),
-               avg_count = n / total_words) %>%
+    output$avg_use <- renderPlotly({
+      average_use %>%
         filter(word == input$word) %>%
         ggplot(aes(x = Party, y = avg_count)) +
         geom_col(fill = "skyblue", color = "navy blue")
-      
-      average_use
     })
+    
+    output$rel_use <- renderPlotly({
+      ggplot(relative_comp, aes(x = `Average Democrat Use`, y = `Average Republican Use`, label = Word)) +
+        geom_point(color = "skyblue")
+    })
+    
     
    #RANDOMIZE
     
-    output$tweet_summary <- renderTable({
+    output$tweet_summary <- renderTable(striped = TRUE, hover = TRUE, bordered = TRUE,
+                                        spacing = "l",{
       
       input$explore
       
       twitter_clean %>%
         select(-Party, -State) %>%
         sample_n(1) %>%
-        select(-Replies, -Retweets, -Favorites)
+        select(-Replies, -Retweets, -Favorites) %>%
+        mutate(Time = as.character(Time))
     })
-  
+    
+    #SENTIMENT ANALYSIS
+    
+    output$bing <- renderPlotly({
+      
+      ggplot(twitter_bing, aes(x = Party, y = sentiment_strength, fill = sentiment)) +
+        geom_bar(stat = "identity", position = "dodge")
+      
+    })
+    
+    output$nrc <- renderPlotly({
+      
+      ggplot(twitter_nrc, aes(x = Party, y = sentiment_strength, fill = sentiment)) +
+        geom_bar(stat = "identity", position = "dodge")
+      
+    })
+    
+    
+    output$afinn <- renderPlotly({
+    
+      ggplot(twitter_afinn, aes(x = Party, y = sentiment_strength, fill = positivity_measure)) +
+        geom_bar(stat = "identity", position = "dodge")
+      
+    })
+
+    
+    output$afinn_dem <- renderPlotly({
+      
+      senator_dem_afinn <- senator_afinn %>% filter(Party == "Democrat/Independent")
+      
+      ggplot(senator_dem_afinn, aes(x = User, y = average_positivity, label = User)) +
+        geom_bar(stat = "identity") +
+        theme(axis.text.x = element_text(angle = -90, hjust = 0, vjust = 0))
+             
+    })
+    
+    output$afinn_rep <- renderPlotly({
+      
+      senator_rep_afinn <- senator_afinn %>% filter(Party == "Republican")
+      
+      ggplot(senator_rep_afinn, aes(x = User, y = average_positivity, label = User)) +
+        geom_bar(stat = "identity") +
+        theme(axis.text.x = element_text(angle = -90, hjust = 0, vjust = 0))
+      
+    })
+    
+    
 }
 
 # Run the application 

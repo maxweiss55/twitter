@@ -14,32 +14,19 @@ library(stringr)
 library(lubridate)
 library(knitr)
 library(tidytext)
+library(grid)
 data("stop_words")
 
 ```
 
 
-```{r scratch, message = FALSE, warning = FALSE}
+```{r write rds}
 
-trump <- read_csv("https://raw.githubusercontent.com/fivethirtyeight/data/master/twitter-ratio/realDonaldTrump.csv")
-
-obama <- read_csv("https://raw.githubusercontent.com/fivethirtyeight/data/master/twitter-ratio/BarackObama.csv")
-
-sens <- read_csv("https://raw.githubusercontent.com/fivethirtyeight/data/master/twitter-ratio/senators.csv")
-
-obama <- obama %>%
-  mutate(bioguide_id = NA, party = NA, state = NA)
-
-trump <- trump %>%
-  mutate(bioguide_id = NA, party = NA, state = NA)
-
-all_tweets <- rbind(trump, obama, sens)
-
-write.csv(all_tweets, file = "all_tweets.csv") 
+#DATA CLEANING
 
 twitter <- read_csv("all_tweets.csv")
 
-twitter_clean <- twitter %>%
+twitter_clean1 <- twitter %>%
   select(user, created_at, text, replies, retweets, favorites, party, state) %>%
   mutate(created_at = mdy_hm(created_at),
          party = case_when(party == "D" ~ "Democrat", 
@@ -47,58 +34,149 @@ twitter_clean <- twitter %>%
                            party == "I" ~ "Independent",
                            user == "realDonaldTrump" ~ "Trump")) %>%
   filter(user != "BarackObama", created_at > "2017-01-20" & created_at < "2017-10-20") %>%
-  rename("User" = "user", "Time" = "created_at", "Text" = "text", "Replies" = "replies", "Retweets" = "retweets", "Favorites" = "favorites", "Party" = "party", "State" = "state")
+  rename("User" = "user", "Time" = "created_at", "Text" = "text", "Replies" = "replies", 
+         "Retweets" = "retweets", "Favorites" = "favorites", "Party" = "party", "State" = "state")  %>%
+  mutate(Text = str_replace_all(Text, "�", " ")) 
 
-summary <- twitter_clean %>%
+write_rds(twitter_clean1, "twitter/twitter_clean1")
+
+#ANALYSIS
+
+wordcounts1 <- twitter_clean1 %>%
+  unnest_tokens(word, Text) %>%
   group_by(Party) %>%
-  summarize("Total Users" = n_distinct(User),
-            "Total Tweets" = n(),
-            "Average Replies" = round(mean(Replies)),
-            "Average Retweets" = round(mean(Retweets)),
-            "Average Favorites" = round(mean(Favorites))) %>%
-  kable()
+  summarize(total_words = n())
 
+write_rds(wordcounts1, "twitter/wordcounts1")
 
-count <- twitter_clean %>%
-  filter(Party == "Republican") %>%
+wordcounts_senator1 <- twitter_clean1 %>%
+  filter(User != "realDonaldTrump") %>%
+  unnest_tokens(word, Text) %>%
+  group_by(User) %>%
+  summarize(total_words = n())
+
+write_rds(wordcounts_senator1, "twitter/wordcounts_senator1")
+
+senator_party1 <- twitter_clean1 %>%
+  filter(User != "realDonaldTrump") %>%
+  select(User, Party) %>%
+  mutate(Party = case_when(Party == "Democrat" ~ "Democrat/Independent",
+                           Party == "Independent" ~ "Democrat/Independent",
+                           Party == "Republican" ~ "Republican")) %>%
+  distinct(User, .keep_all = TRUE)
+
+write_rds(senator_party1, "twitter/senator_party1")
+
+cloud_count1 <- twitter_clean1 %>%
   unnest_tokens(word, Text) %>%
   anti_join(stop_words) %>%
+  filter(word != "https", word != "t.co", word != "amp", word != "rt")
+
+write_rds(cloud_count1, "twitter/cloud_count1")
+
+count_table1 <- twitter_clean1 %>%
+  unnest_tokens(word, Text) %>%
+  group_by(Party) %>%
   count(word) %>%
-  arrange(desc(n)) %>%
-  filter(word != "https", word != "t.co", word != "amp", word != "rt") %>%
-  head(n = 100)
+  select(Party, n, word) %>%
+  rename("Group" = "Party", "Uses" = "n", "Word" = "word")
 
-wordcloud2(count_t)
+write_rds(count_table1, "twitter/count_table1")
 
-average_use <- twitter_clean %>%
+average_use1 <- twitter_clean1 %>%
+        group_by(Party) %>%
+        unnest_tokens(word, Text) %>%
+        count(word) %>%
+        group_by(Party) %>%
+        mutate(total_words = sum(n),
+               avg_count = n / total_words)
+
+write_rds(average_use1, "twitter/average_use1")
+
+relative_d <- twitter_clean1 %>%
   group_by(Party) %>%
   unnest_tokens(word, Text) %>%
+  anti_join(stop_words) %>%
+  filter(word != "https" & word != "t.co" & word != "amp" & word != "rt") %>%
   count(word) %>%
   group_by(Party) %>%
   mutate(total_words = sum(n),
          avg_count = n / total_words) %>%
-  filter(word == "news") %>%
-  ggplot(aes(x = Party, y = avg_count)) +
-  geom_col(fill = "skyblue", color = "navy blue")
+  ungroup(Party) %>%
+  filter(Party == "Democrat") %>%
+  select(word, avg_count) %>%
+  rename("Word" = "word", "Average Democrat Use" = "avg_count")
 
-average_use
+relative_r <- twitter_clean1 %>%
+  group_by(Party) %>%
+  unnest_tokens(word, Text) %>%
+  anti_join(stop_words) %>%
+  filter(word != "https" & word != "t.co" & word != "amp" & word != "rt") %>%
+  count(word) %>%
+  group_by(Party) %>%
+  mutate(total_words = sum(n),
+         avg_count = n / total_words) %>%
+  ungroup(Party) %>%
+  filter(Party == "Republican") %>%
+  select(word, avg_count) %>%
+  rename("Word" = "word", "Average Republican Use" = "avg_count")
 
-random_select <- twitter_clean %>%
-  select(-Party, -State) %>%
-  sample_n(1)
-  
-random_summary <- random_select %>%
-  select(-Text)
+relative_comp1 <- full_join(relative_d, relative_r, by = "Word") %>%
+  mutate(`Average Democrat Use` = ifelse(is.na(`Average Democrat Use`), 0, `Average Democrat Use`)) %>%
+  mutate(`Average Republican Use` = ifelse(is.na(`Average Republican Use`), 0, `Average Republican Use`)) %>%
+  filter(`Average Democrat Use` + `Average Republican Use` > .00025)
 
-random_text <- random_select %>%
-  select(Text)
+write_rds(relative_comp1, "twitter/relative_comp1")
 
-      twitter_clean %>%
-        select(-Party, -State) %>%
-        sample_n(1) %>%
-        select(-Replies, -Retweets, -Favorites)  
 
+twitter_bing1 <- twitter_clean1 %>%
+  unnest_tokens(word, Text) %>%
+  inner_join(get_sentiments("bing")) %>%
+  group_by(Party, sentiment) %>%
+  tally() %>%
+  left_join(wordcounts1) %>%
+  mutate(sentiment_strength = n / total_words)
+
+write_rds(twitter_bing1, "twitter/twitter_bing1")
+
+
+twitter_nrc1 <- twitter_clean1 %>%
+  unnest_tokens(word, Text) %>%
+  inner_join(get_sentiments("nrc")) %>%
+  filter(sentiment == "positive" | sentiment == "negative") %>%
+  group_by(Party, sentiment) %>%
+  tally() %>%
+  left_join(wordcounts1) %>%
+  mutate(sentiment_strength = n / total_words)
+
+write_rds(twitter_nrc1, "twitter/twitter_nrc1")
+
+twitter_afinn1 <- twitter_clean1 %>%
+  unnest_tokens(word, Text) %>%
+  inner_join(get_sentiments("afinn")) %>%
+  group_by(Party) %>%
+  summarize(average_positivity = mean(score),
+            net_positivity = sum(score)) %>% #adjusted net per total words
+  left_join(wordcounts1) %>%
+  mutate(net_positivity = net_positivity / total_words) %>%
+  select(-total_words) %>%
+  gather(average_positivity, net_positivity, key = "positivity_measure", value = "sentiment_strength")
+
+write_rds(twitter_afinn1, "twitter/twitter_afinn1")   
+
+senator_afinn1 <- twitter_clean1 %>%
+        filter(User != "realDonaldTrump") %>%
+        unnest_tokens(word, Text) %>%
+        inner_join(get_sentiments("afinn")) %>%
+        group_by(User) %>%
+        summarize(average_positivity = mean(score)) %>%
+        left_join(wordcounts_senator1) %>%
+        select(-total_words) %>%
+        left_join(senator_party1, by = "User")
+
+write_rds(senator_afinn1, "twitter/senator_afinn1") 
 
 
 ```
+
 
