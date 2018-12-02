@@ -205,7 +205,7 @@ server <- function(input, output) {
       
       twitter_clean %>%
         select(-Party, -State) %>%
-        sample_n(1) %>%
+        sample_n(3) %>%
         select(-Replies, -Retweets, -Favorites) %>%
         mutate(Time = as.character(Time))
     })

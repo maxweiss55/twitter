@@ -8,13 +8,19 @@ output: html_document
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = FALSE)
 
-library(dplyr)
+
+library(shiny)
 library(tidyverse)
 library(stringr)
 library(lubridate)
 library(knitr)
+library(shiny)
+library(shinyjs)
+library(wordcloud2)
 library(tidytext)
-library(grid)
+library(plotly)
+library(gganimate)
+library(shinythemes)
 data("stop_words")
 
 ```
