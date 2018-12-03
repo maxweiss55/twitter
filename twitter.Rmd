@@ -8,7 +8,10 @@ output: html_document
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = FALSE)
 
+#R Markdown was used to be interactive, while building .rmd files for ShinyApp
+
 #Load Libraries
+
 library(shiny)
 library(tidyverse)
 library(stringr)
