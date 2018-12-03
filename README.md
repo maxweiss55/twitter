@@ -1,4 +1,4 @@
-# twitter
+# Presidential and Senate Twitter Activity: Trump's First 9 Months in Office
 
 We are in the Trump Era, which may also appropriately be called the ‘Twitter Era’.
 President Trump is not the only politician who is taking advantage of the customizable, direct, public, and real-time platform.
@@ -16,6 +16,7 @@ The dataset was used originally for the study “The Worst Tweeter In Politics I
 by Oliver Roeder, Dhrumil Mehta, and Gus Wezerek.
 
 [Link to original article](https://fivethirtyeight.com/features/the-worst-tweeter-in-politics-isnt-trump/)
+
 [Link to Github associated with article](https://github.com/fivethirtyeight/data/tree/master/twitter-ratio)
 
 From these original datasets, one can extract every tweet from President Trump and all Senators for the first nine months of 
