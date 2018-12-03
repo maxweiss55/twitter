@@ -1,4 +1,4 @@
-
+#Download necessary libraries
 library(shiny)
 library(tidyverse)
 library(stringr)
@@ -9,11 +9,11 @@ library(shinyjs)
 library(wordcloud2)
 library(tidytext)
 library(plotly)
-library(gganimate)
 library(shinythemes)
 
-twitter <- read_csv("all_tweets.csv")
+twitter <- read_csv("all_tweets.csv") #Download original dataset
 
+#Download all .rds files produced in .rmd file
 twitter_clean <- read_rds("twitter_clean1")
 wordcounts <- read_rds("wordcounts1")
 senator_party <- read_rds("senator_party1")
@@ -27,13 +27,13 @@ twitter_nrc <- read_rds("twitter_nrc1")
 twitter_afinn <- read_rds("twitter_afinn1")
 senator_afinn <- read_rds("senator_afinn1")
 
-
+#Split the large dataset into one for Senators and another for Trump
 senators <- twitter_clean %>%
   filter(User != "realDonaldTrump")
-
 trump <- twitter_clean %>%
   filter(User == "realDonaldTrump")
 
+#Build Summary Table that will be presented
 summary <- twitter_clean %>%
   group_by(Party) %>%
   summarize("Total Users" = n_distinct(User),
@@ -42,14 +42,48 @@ summary <- twitter_clean %>%
             "Average Retweets" = round(mean(Retweets), digits = 0),
             "Average Favorites" = round(mean(Favorites), digits = 0))
 
-
-
 ui <- navbarPage("Presidential and Senate Twitter Activity: Trump's First 9 Months in Office",
                  
                  tabPanel("Description", fluidPage(theme = shinytheme("cerulean"),
                                                           
-                 "Description"
-                                                        
+                 h1("Description"),
+                 #The following description can also be found in the README in the Github Repo
+                 br(),
+                 
+                 "We are in the Trump Era, which may also appropriately be called the ‘Twitter Era’.
+                 President Trump is not the only politician who is taking advantage of the customizable, direct, public, and real-time platform.
+                 Every Senator has an active Twitter account with hundreds-of-thousands or millions of followers. 
+                 Trump alone, as of December 2018, has more than 50-million followers on the platform.",
+                 br(),
+                 br(),
+                 "The language used by political elites is important in two main ways:",
+                 br(),
+                 "1)	The way political elites talk about their beliefs and actions in public may reflect those beliefs and actions.",
+                 br(),
+                 "2)	The way political elites talk about their beliefs and actions in public cues and may influence what citizens 
+                 believe and how citizens act and vote.",
+                 br(),
+                 br(),
+                 "The study investigates the language used by Senators and President Trump on Twitter during the Trump Presidency. 
+                 The dataset that is the subject of this study was collected originally by FiveThirtyEight. 
+                 The dataset was used originally for the study 'The Worst Tweeter In Politics Isn’t Trump' 
+                 by Oliver Roeder, Dhrumil Mehta, and Gus Wezerek.",
+                 br(),
+                 br(),
+                 a("Link to original article", href= "https://fivethirtyeight.com/features/the-worst-tweeter-in-politics-isnt-trump/"),
+                 br(),
+                 a("Link to Github associated with article", href= "https://github.com/fivethirtyeight/data/tree/master/twitter-ratio"),
+                 br(),
+                 br(),
+                 "From these original datasets, one can extract every tweet from President Trump and all Senators for the first nine months of 
+                 Trump’s Presidential term. I am interested only in tweets starting from Trump's inauguration.",
+                 br(),
+                 br(),
+                 "Study of the data is split into four parts. First, I offer simple summary statistics and time-indexed histograms to give 
+                 a sense of the nature of Senator and Trump Tweeting. Second, I investigate the differences in the language used by Senators 
+                 and Trump by analyzing words used. Third, I have provided a sampling feature, where one can click through randomized tweets 
+                 from the dataset for personal interest. Lastly, I use several different methods of sentiment analysis to study and compare 
+                 the sentiments of different Senators and the President."
                  )),                 
                  
                  
@@ -59,18 +93,40 @@ ui <- navbarPage("Presidential and Senate Twitter Activity: Trump's First 9 Mont
                    titlePanel("Summary Statistics"),
                    
                    sidebarPanel(
-                     
+                     #Select Bin number for Histograms
                      sliderInput("bins",
-                                 "Number of bins:",
+                                 "Number of Bins:",
                                  min = 1,
                                  max = 300,
-                                 value = 150)
+                                 value = 150),
+                     p("Select the desired number of bins to be used for the histograms on the right.")
                    ),
                    
                    mainPanel(
+                     #Table title
+                     strong("Summary Statistics of Presidential and Senate Tweeting:Trump's First 9-Month's"),
+                     #Table
                      tableOutput("summary"),
+                     #Table Caption
+                     "The summary statistics calculated for Senate were split by Party. The table also
+                     displays summary statistics for President Trump's Twitter account. The table shows
+                     the amount Tweeted from each group and average reception received.",
+                     #Histogram of Senator Tweets indexed by time
                      plotlyOutput(outputId = "densityplot", height = 400),
-                     plotlyOutput(outputId = "densityplot2", height = 400)
+                     #Caption
+                     "The histogram above displays the number of tweets published per time interval.
+                     Notice there are periods of increased and decreased Tweeting. One can posit
+                     what may have caused this at one time or another but would need to look further
+                     at the content of the Tweets to truly understand the trends. The fill of the
+                     histogram is separated by the portion that came from each Senator.",
+                     
+                     #Histogram of Trump Tweets indexed by time
+                     plotlyOutput(outputId = "densityplot2", height = 400),
+                     #Caption
+                     "The histogram above displays the number of tweets published per time interval.
+                      Notice there are periods of increased and decreased Tweeting. One can posit
+                     what may have caused this at one time or another but would need to look further
+                     at the content of the Tweets to truly understand the trends."
                    )
                 
                  )),
@@ -81,14 +137,10 @@ ui <- navbarPage("Presidential and Senate Twitter Activity: Trump's First 9 Mont
                    titlePanel("Word Use Frequencies"),
                    
                    sidebarPanel(
-                     selectInput("group", "Group:", c("Democrat", "Republican", "Trump"), "Democrat"),
                      textInput("word", "Search Any Word!", "word")
                    ),
                    
                    mainPanel(
-                     h2("Word Cloud: Word Use Frequency"),
-                     wordcloud2Output(outputId = "cloud"),
-                     
                      h2("Word Use Frequency Table"),
                      tableOutput("freqtable"),
                      
@@ -96,7 +148,16 @@ ui <- navbarPage("Presidential and Senate Twitter Activity: Trump's First 9 Mont
                      plotlyOutput("avg_use"),
                      
                      h2("Relative Word Comparison"),
-                     plotlyOutput("rel_use")
+                     plotlyOutput("rel_use"),
+                     
+                     h2("Word Cloud: Word Use Frequency: Democrats"),
+                     HTML('<center><img src="trump.jpg" height = 400 width = 700 ></center>'),
+                     
+                     h2("Word Cloud: Word Use Frequency: Republicans"),
+                     HTML('<center><img src="dem.jpg" height = 400 width = 700 ></center>'),
+                     
+                     h2("Word Cloud: Word Use Frequency: Trump"),
+                     HTML('<center><img src="trump.jpg" height = 400 width = 700 ></center>')
                    )
                    
                  )),
@@ -145,7 +206,7 @@ server <- function(input, output) {
       theme(plot.title = element_text(hjust = 0.5),
             plot.subtitle = element_text(hjust = 0.5),
             plot.caption = element_text(hjust = 0.5)) + #Center title/subtitle/caption
-      labs(title = "Senator Tweeting By Date",
+      labs(title = "Senator Tweeting By Date (2017)",
            subtitle = "Separated by Party",
            x = "Date Tweeted", y = "Frequency") + #Create title, subtitle, caption, x/y-axis labels
       guides(fill = guide_legend(title = "Party")) + #Set legend title
@@ -170,16 +231,16 @@ server <- function(input, output) {
   
   #WORDS
   
-  output$cloud <- renderWordcloud2({
+  #output$cloud <- renderWordcloud2({
       
-     cloud_count2 <- cloud_count %>% filter(Party == input$group) %>%
-      count(word) %>%
-      arrange(desc(n)) %>%
-      head(n = 180)
+     #cloud_count2 <- cloud_count %>% filter(Party == input$group) %>%
+     # count(word) %>%
+     # arrange(desc(n)) %>%
+     # head(n = 180)
     
-      wordcloud2(cloud_count2)
+      #wordcloud2(cloud_count2)
      
-  })
+  #})
     
     output$freqtable <- renderTable(striped = TRUE, hover = TRUE, bordered = TRUE,
                                     spacing = "l", {
