@@ -46,6 +46,13 @@ summary <- twitter_clean %>%
 
 ui <- navbarPage("Presidential and Senate Twitter Activity: Trump's First 9 Months in Office",
                  
+                 tabPanel("Description", fluidPage(theme = shinytheme("cerulean"),
+                                                          
+                 "Description"
+                                                        
+                 )),                 
+                 
+                 
                  tabPanel("Summary Statistics", fluidPage(theme = shinytheme("cerulean"),
                    
                    # Application title
@@ -61,9 +68,9 @@ ui <- navbarPage("Presidential and Senate Twitter Activity: Trump's First 9 Mont
                    ),
                    
                    mainPanel(
+                     tableOutput("summary"),
                      plotlyOutput(outputId = "densityplot", height = 400),
-                     plotlyOutput(outputId = "densityplot2", height = 400),
-                     tableOutput("summary")
+                     plotlyOutput(outputId = "densityplot2", height = 400)
                    )
                 
                  )),
@@ -110,23 +117,21 @@ ui <- navbarPage("Presidential and Senate Twitter Activity: Trump's First 9 Mont
                  )),
                  
                  tabPanel("Sentiment Analysis", fluidPage(theme = shinytheme("cerulean"),
-                                                          
                    # Application title
-                   titlePanel("Sentiment Analysis"),        
+                   titlePanel("Sentiment Analysis"),
                    
-                   h2("Positivity and Negativity Sentiment Measures (Bing Lexicon)"),
-                   plotlyOutput("bing"),
-                                                          
-                   h2("Positivity and Negativity Sentiment Measures (NRC Lexicon)"),
-                   plotlyOutput("nrc"),
+                   sidebarPanel(
+                     selectInput("sentiment", "Select Sentiment Study:", 
+                                 c("Positivity and Negativity (Bing)",
+                                   "Positivity and Negativity (NRC)",
+                                   "Positivity Measures (Afinn)",
+                                   "Democrats/Independents Positivity",
+                                   "Republicans Positivity"), "Positivity and Negativity (Bing)")
+                   ),
                    
-                   h2("Positivity and Negativity Sentiment Measures (Afinn Lexicon)"),
-                   plotlyOutput("afinn"),
-                   
-                   
-                   h2("Positivity by Senator Account"),
-                   plotlyOutput("afinn_dem"),
-                   plotlyOutput("afinn_rep")
+                   mainPanel(
+                     plotlyOutput("sentiments")
+                   )
                  ))
                 )
 
@@ -212,50 +217,35 @@ server <- function(input, output) {
     
     #SENTIMENT ANALYSIS
     
-    output$bing <- renderPlotly({
+    output$sentiments <- renderPlotly({
       
-      ggplot(twitter_bing, aes(x = Party, y = sentiment_strength, fill = sentiment)) +
-        geom_bar(stat = "identity", position = "dodge")
-      
+      if (input$sentiment == "Positivity and Negativity (Bing)") {
+        ggplot(twitter_bing, aes(x = Party, y = sentiment_strength, fill = sentiment)) +
+          geom_bar(stat = "identity", position = "dodge")        
+      }
+      else if (input$sentiment == "Positivity and Negativity (NRC)"){
+        ggplot(twitter_nrc, aes(x = Party, y = sentiment_strength, fill = sentiment)) +
+          geom_bar(stat = "identity", position = "dodge")        
+      }
+      else if (input$sentiment == "Positivity Measures (Afinn)"){
+        ggplot(twitter_afinn, aes(x = Party, y = sentiment_strength, fill = positivity_measure)) +
+          geom_bar(stat = "identity", position = "dodge")     
+      }
+      else if (input$sentiment == "Democrats/Independents Positivity"){
+        senator_dem_afinn <- senator_afinn %>% filter(Party == "Democrat/Independent")
+        
+        ggplot(senator_dem_afinn, aes(x = User, y = average_positivity, label = User)) +
+          geom_bar(stat = "identity") +
+          theme(axis.text.x = element_text(angle = -90, hjust = 0, vjust = 0)) 
+      }
+      else if (input$sentiment == "Republicans Positivity"){
+        senator_rep_afinn <- senator_afinn %>% filter(Party == "Republican")
+        
+        ggplot(senator_rep_afinn, aes(x = User, y = average_positivity, label = User)) +
+          geom_bar(stat = "identity") +
+          theme(axis.text.x = element_text(angle = -90, hjust = 0, vjust = 0))
+      }
     })
-    
-    output$nrc <- renderPlotly({
-      
-      ggplot(twitter_nrc, aes(x = Party, y = sentiment_strength, fill = sentiment)) +
-        geom_bar(stat = "identity", position = "dodge")
-      
-    })
-    
-    
-    output$afinn <- renderPlotly({
-    
-      ggplot(twitter_afinn, aes(x = Party, y = sentiment_strength, fill = positivity_measure)) +
-        geom_bar(stat = "identity", position = "dodge")
-      
-    })
-
-    
-    output$afinn_dem <- renderPlotly({
-      
-      senator_dem_afinn <- senator_afinn %>% filter(Party == "Democrat/Independent")
-      
-      ggplot(senator_dem_afinn, aes(x = User, y = average_positivity, label = User)) +
-        geom_bar(stat = "identity") +
-        theme(axis.text.x = element_text(angle = -90, hjust = 0, vjust = 0))
-             
-    })
-    
-    output$afinn_rep <- renderPlotly({
-      
-      senator_rep_afinn <- senator_afinn %>% filter(Party == "Republican")
-      
-      ggplot(senator_rep_afinn, aes(x = User, y = average_positivity, label = User)) +
-        geom_bar(stat = "identity") +
-        theme(axis.text.x = element_text(angle = -90, hjust = 0, vjust = 0))
-      
-    })
-    
-    
 }
 
 # Run the application 
