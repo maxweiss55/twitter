@@ -27,3 +27,7 @@ a sense of the nature of Senator and Trump Tweeting. Second, I investigate the d
 and Trump by analyzing words used. Third, I have provided a sampling feature, where one can click through randomized tweets 
 from the dataset for personal interest. Lastly, I use several different methods of sentiment analysis to study and compare 
 the sentiments of different Senators and the President.
+
+<b>Brief Results:</b>
+
+The language used by Senate Democrats and Republicans is highly polarized. Democrats more often used words like “trumpcare”, “Medicaid”, and “ACA”, while Republicans more often used words like “obamacare”, “hearing”, and “foxnews”. Trump was found to be both more positive and more negative in his speech, likely meaning he uses more emotionally inflammatory language overall. Democratic Senators were both more negative and less positive than their Republican collegues.
