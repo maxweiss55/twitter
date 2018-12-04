@@ -30,4 +30,4 @@ the sentiments of different Senators and the President.
 
 <b>Brief Results:</b>
 
-The language used by Senate Democrats and Republicans is highly polarized. Democrats more often used words like “trumpcare”, “Medicaid”, and “ACA”, while Republicans more often used words like “obamacare”, “hearing”, and “foxnews”. Trump was found to be both more positive and more negative in his speech, likely meaning he uses more emotionally inflammatory language overall. Democratic Senators were both more negative and less positive than their Republican collegues.
+The language used by Senate Democrats and Republicans is highly polarized. Democrats more often used words like “trumpcare”, “medicaid”, and “aca”, while Republicans more often used words like “obamacare”, “hearing”, and “foxnews”. Trump was found to be both more positive and more negative in his speech, likely meaning he uses more emotionally inflammatory language overall. Democratic Senators were both more negative and less positive than their Republican collegues.
