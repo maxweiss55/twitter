@@ -8,9 +8,15 @@ output: html_document
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = FALSE)
 
-#R Markdown was used to be interactive, while building .rmd files for ShinyApp
+# R Markdown was used instead of basic R Script in order to for interactive visualization
+# while building .rmd files to be used for ShinyApp
 
-#Load Libraries
+# This file does not need to be run before running ShinyApp.
+# All .rds files built in this .rmd and used for ShinyApp are included in repo.
+# This .rmd file was how the files currently in repo were originally built
+
+
+# Load Libraries
 
 library(shiny)
 library(tidyverse)
@@ -24,152 +30,204 @@ library(tidytext)
 library(plotly)
 library(gganimate)
 library(shinythemes)
-data("stop_words") #Load dataset of stop words for sentiment analysis
+
+# Load dataset of stop words for sentiment analysis
+
+data("stop_words")
 
 ```
 
 
 ```{r write rds}
 
-#DATA CLEANING
+# DATA CLEANING
 
-##Commented out below is the code used to build the "all_tweets.csv" dataset, combining 
-##all of fivethirtyeight's political Twitter data from the following study 
-## https://fivethirtyeight.com/features/the-worst-tweeter-in-politics-isnt-trump/ 
-##"all_tweets.csv" is include in the repo instead of real-time building to prepare for the case
-##where fivethirtyeight changes or removes the dataset.
-
-# trump <- read_csv("https://raw.githubusercontent.com/fivethirtyeight/data/master/twitter-ratio/realDonaldTrump.csv") #Trump Twitter Data
+# Commented out below is the code used to build the "all_tweets.csv" dataset, combining 
+# all of fivethirtyeight's political Twitter data from the following study:
+#  https://fivethirtyeight.com/features/the-worst-tweeter-in-politics-isnt-trump/ 
+# in the following github repository:
+# https://github.com/fivethirtyeight/data/tree/master/twitter-ratio 
+# "all_tweets.csv" is include in this repo instead of real-time building to prepare for the case
+# where fivethirtyeight changes or removes the dataset from their repo.
 # 
-# obama <- read_csv("https://raw.githubusercontent.com/fivethirtyeight/data/master") #Obama Twitter Data
+#  trump <- read_csv("https://raw.githubusercontent.com/fivethirtyeight/data/master/twitter-ratio/realDonaldTrump.csv") # Trump Twitter Data
+#  
+#  obama <- read_csv("https://raw.githubusercontent.com/fivethirtyeight/data/master") # Obama Twitter Data
+#  
+#  sens <- read_csv("https://raw.githubusercontent.com/fivethirtyeight/data/master/twitter-ratio/senators.csv") # Senator Twitter Data
+#  
+#  obama <- obama %>%
+#    mutate(bioguide_id = NA, party = NA, state = NA) # Add rows to enable binding
+#  
+#  trump <- trump %>%
+#    mutate(bioguide_id = NA, party = NA, state = NA) # Add rows to enable binding
 # 
-# sens <- read_csv("https://raw.githubusercontent.com/fivethirtyeight/data/master/twitter-ratio/senators.csv") #Senator Twitter Data
-# 
-# obama <- obama %>%
-#   mutate(bioguide_id = NA, party = NA, state = NA) #Add rows to enable binding
-# 
-# trump <- trump %>%
-#   mutate(bioguide_id = NA, party = NA, state = NA) #Add rows to enable binding
-#
-# all_tweets <- rbind(trump, obama, sens) #Bind the three datasets together
-# 
-# write.csv(all_tweets, file = "all_tweets.csv") #Write new .csv file with all of the available data
+#  all_tweets <- rbind(trump, obama, sens) # Bind the three datasets together
+#  
+# Write new .csv file with all of the available data into repo
+# write.csv(all_tweets, file = "all_tweets.csv")
 
 
-#Load in dataset, built by description above. Dataset includes:
-##3,200 most recent tweets from President Obama, President Trump, and each Senator's Twitter account
-##Time posted (created_at); Text of tweet (text); Url (url); 
-##number of retweets (retweets), favorites (favorites), replies (replies); Twitter Username (user);
-##Member IDs from the "Biographical Directory of the United States Congress" (bioguide_id); 
-##Party ID (party); State Representing (state)
+# Load in dataset, built by description above. Dataset includes:
+# 
+# The 3,200 most recent tweets from President Obama, President Trump, and each Senator's Twitter account
+# Time posted (created_at); Text of tweet (text); Url (url); 
+# number of retweets (retweets), favorites (favorites), replies (replies); Twitter Username (user);
+# Member IDs from the "Biographical Directory of the United States Congress" (bioguide_id); 
+# Party ID (party); State Representing (state)
 
-twitter <- read_csv("all_tweets.csv")
+twitter <- read_csv("all_tweets.csv") # Download original dataset
 
-#I am interested only in tweets starting from Trump's inauguration. I am also only interested in 
-#Senators' and Trump's tweets from this period. In addition to a different sociopolitical
-#dynamic before and after Trump became president, the way in which fivethirtyeight collected the data 
-#(each user's last 3200 tweets) means data before this time period is sparse in the dataset.
-#Conveniently, the dataset includes nearly an exact 9-month period from Trump's inauguration. 
-#In my cleaning of the large dataset below, I filter to only tweets in the 9 months following 
-#Trump's inauguration, and I filter out Obama's tweets from this period because they are scarce and
-#likely to be politically uninformative with Obama out of office.
+# I am interested only in tweets starting from Trump's inauguration. I am also only interested in 
+# Senators' and Trump's tweets from this period. In addition to a different sociopolitical
+# dynamic before and after Trump became president, the way in which fivethirtyeight collected the data 
+# (each user's last 3200 tweets) means data before this time period is not necessarily available
+# for every senator starting at the chronological beginning of the dataset. Conveniently,
+# the dataset includes every tweet from an exact 9-month period from Trump's inauguration. 
+# In my cleaning of the large dataset below, I filter to only tweets in the 9 months following 
+# Trump's inauguration, and I filter out President Obama's tweets from this period because they are 
+# scarce and likely to be politically uninformative with President Obama out of office.
 
 twitter_clean1 <- twitter %>%
+  
+  # Use all variables but bioguide_id. This variable was not necessary for my analysis.
+  # Reorder variables for convenient viewing using select function.
+  
   select(user, created_at, text, replies, retweets, favorites, party, state) %>%
-  #Parse created_at column to a date/time
-  #Make party a more informative variable. For Trump's tweets, simply indicate party as "Trump". 
-  #This was done for ease of grouping during analysis.
+  
+  # Parse created_at column to a date/time.
+  # Make party a more informative variable by changing abbreviation to full name. 
+  # For Trump's tweets, simply indicate party as "Trump". This was done for ease of 
+  # grouping/group labelling during analysis.
+  
   mutate(created_at = mdy_hm(created_at),
          party = case_when(party == "D" ~ "Democrat", 
                            party == "R" ~ "Republican",
                            party == "I" ~ "Independent",
                            user == "realDonaldTrump" ~ "Trump")) %>%
+  
+  # As dicussed, the desireable range is from the day of Trump's inauguration to nine months later.
+  # (2017-01-20 to 2017-10-20)
+  # Additionally, President Obama's Tweets are not necessary for this analysis.
+  
   filter(user != "BarackObama", created_at > "2017-01-20" & created_at < "2017-10-20") %>%
-  #Rename variables for making them more informative and convenience later in displaying data.
+  
+  # Rename variables for making them more informative and convenience later in displaying data.
+  # I did this on the front end instead of keeping variable names the same as snake case because
+  # it provided a more streamlined solution when displaying data in shiny app. This renaming
+  # saved many lines of code of individually renaming on the backend before Shiny display.
+  
   rename("User" = "user", "Time" = "created_at", "Text" = "text", "Replies" = "replies", 
-         "Retweets" = "retweets", "Favorites" = "favorites", "Party" = "party", "State" = "state")  %>%
-  #Replace all strings "�", with an empty space. R cannot process this symbol, and it shows up in many
-  #tweets (likely for an emoji)
+         "Retweets" = "retweets", "Favorites" = "favorites", "Party" = "party", "State" = "state") %>%
+  
+  # Replace all strings "�", with an empty space. Shiny cannot process/display this 
+  # symbol, and it shows up in many tweets (likely in the place of an emoji or similar character). 
+  
   mutate(Text = str_replace_all(Text, "�", " ")) 
 
-#Write an rds file of this cleaned twitter data to use in ShinyApp 
-#(saving this and future .rds to ShinyApp folder)
-#This cleaned dataset is the dataset that I focus on for my entire analysis
-write_rds(twitter_clean1, "twitter/twitter_clean1")
+
+# Write an rds file of this cleaned twitter data to use in ShinyApp 
+# (saving this and future .rds to ShinyApp folder)
+# This cleaned dataset is the dataset that I focus on for my entire analysis
+
+write_rds(twitter_clean1, "twitter/data_tables/twitter_clean1")
 
 
 
-#ANALYSIS
+# BUILD DATASETS FOR ANALYSIS
 
-#Count the number of words tweeted by each `Party`
+
+# Building these datasets here instead of in Shiny .R file enabled 
+# faster processing and deploying of Shiny App
+
+# Count the number of words tweeted by each `Party`
+
 wordcounts1 <- twitter_clean1 %>%
-  unnest_tokens(word, Text) %>%
+  unnest_tokens(word, Text) %>% # Tokenize by word
   group_by(Party) %>%
   summarize(total_words = n())
 
-#Write an rds file of this data to use in ShinyApp
-#This dataset includes the number of times a given word was used by a given party
-#Will be used for word usage and sentiment analysis
-write_rds(wordcounts1, "twitter/wordcounts1")
+# Write an rds file of this data to use in ShinyApp
+# This dataset includes the number of times a given word was used by a given party
+# Will be used for word usage and sentiment analysis
+
+write_rds(wordcounts1, "twitter/data_tables/wordcounts1")
 
 
-#Count the number of words tweeted by each senator
+# Count the number of words tweeted by each senator
+
 wordcounts_senator1 <- twitter_clean1 %>%
-  filter(User != "realDonaldTrump") %>%
-  unnest_tokens(word, Text) %>%
+  filter(User != "realDonaldTrump") %>% # Remove President's Tweets
+  unnest_tokens(word, Text) %>% # Tokenize by word
   group_by(User) %>%
   summarize(total_words = n())
 
-#Write an rds file of this data to use in ShinyApp
-#This dataset includes the number of times a given word was used by a given senator
-#Will be used for word usage and sentiment analysis
-write_rds(wordcounts_senator1, "twitter/wordcounts_senator1")
+# Write ,rds file of this data to use in ShinyApp
+# This dataset includes the number of times a given word was used by a given senator
+# Will be used for word usage and sentiment analysis
+
+write_rds(wordcounts_senator1, "twitter/data_tables/wordcounts_senator1")
 
 
-#Build dataset of each senator's party
+# Build dataset of each senator's party
+
 senator_party1 <- twitter_clean1 %>%
-  filter(User != "realDonaldTrump") %>%
+  filter(User != "realDonaldTrump") %>% # Remove President's Tweets
   select(User, Party) %>%
-  #Democrat and Indepentent are conflated to one variable for ease of viewing in ShinyApp
+  
+  # Democrat and Indepentent are conflated to one variable for ease of viewing in ShinyApp
+  
   mutate(Party = case_when(Party == "Democrat" ~ "Democrat/Independent",
                            Party == "Independent" ~ "Democrat/Independent",
                            Party == "Republican" ~ "Republican")) %>%
-  #Keep only one duplicate observation for joining
+  
+  # Keep only one duplicate observation for joining 
+  # (instead of having a senator/party observation for each tweet, which would be unnecessary)
+  
   distinct(User, .keep_all = TRUE)
 
-#Write an rds file of this data to use in ShinyApp
-#Will be used for organizing plot
-write_rds(senator_party1, "twitter/senator_party1")
+# Write .rds file of this data to use in ShinyApp
+# Will be used for organizing plots in sentiment analysis
+
+write_rds(senator_party1, "twitter/data_tables/senator_party1")
 
 
-#Build dataset of tokenized words. Filter out uninforative stop words. Filter out the words
-#'https', 't.co', 'amp', and 'rt'. These words show up in the data a radically disproportionate
-#number of times (disrupting scaling of data visualization), but they are uninformative.
+# Build dataset of tokenized words. Filter out uninforative stop words. Filter out the words
+# 'https', 't.co', 'amp', and 'rt'. These words show up in the data a radically disproportionate
+# number of times (disrupting scaling of data visualization), but they are uninformative.
+# They show up for different reasons due to the nature of the dataset. 'rt' is used often to
+# denote that a tweet is a retweet, for example. This is not informative for the purposes
+# of my analysis and inhibit helpful data visulaization, so these words were removed from the set.
+
 cloud_count1 <- twitter_clean1 %>%
   unnest_tokens(word, Text) %>%
   anti_join(stop_words) %>%
   filter(word != "https", word != "t.co", word != "amp", word != "rt")
 
-#Write an rds file to use in ShinyApp
-write_rds(cloud_count1, "twitter/cloud_count1")
+# Write .rds file of this data to use in ShinyApp
+
+write_rds(cloud_count1, "twitter/data_tables/cloud_count1")
 
 
-#Build dataset with the counts of all tokenized words in the dataset by `Party`
-#Even stop words and uninformative words are included, so the user can examine any word
-#being used in this search-and-count words feature of the ShinyApp
+# Build dataset with the counts of all tokenized words in the dataset by `Party`
+# Even stop words and uninformative words are included, so the user can examine any word
+# being used in a search-and-count words feature of the ShinyApp
+
 count_table1 <- twitter_clean1 %>%
   unnest_tokens(word, Text) %>%
   group_by(Party) %>%
   count(word) %>%
   select(Party, n, word) %>%
-  rename("Group" = "Party", "Uses" = "n", "Word" = "word") #Rename to make more informative
+  rename("Group" = "Party", "Uses" = "n", "Word" = "word") # Rename to make more informative
 
-#Write an rds file to use in ShinyApp
-write_rds(count_table1, "twitter/count_table1")
+# Write .rds file of this data to use in ShinyApp
+
+write_rds(count_table1, "twitter/data_tables/count_table1")
 
 
-#Build a dataset with the number of times a word was used in the dataset by a `Party`, adjusted 
-#by the total number of words used by the `Party` for a comparitive measure.
+# Build a dataset with the number of times a word was used in the dataset by a `Party`, adjusted 
+# by the total number of words used by the `Party` for a comparitive measure for visualization.
+
 average_use1 <- twitter_clean1 %>%
         group_by(Party) %>%
         unnest_tokens(word, Text) %>%
@@ -178,13 +236,16 @@ average_use1 <- twitter_clean1 %>%
         mutate(total_words = sum(n),
                avg_count = n / total_words)
 
-#Write an rds file to use in ShinyApp
-write_rds(average_use1, "twitter/average_use1")
+# Write .rds file of this data to use in ShinyApp
+
+write_rds(average_use1, "twitter/data_tables/average_use1")
 
 
-#Build a dataset with the number of times a word was used in the dataset by Democrats, adjusted 
-#by the total number of words used by Democrats for a comparitive measure. Stop words and uninformative
-#words were excluded for data visualization.
+# Build a dataset with the number of times a word was used in the dataset by Democrats, adjusted 
+# by the total number of words used by Republicans for a comparitive measure. Stop words and
+# uninformative words ('https', 't.co', 'amp', 'rt') were excluded for data visualization, 
+# as previously discussed.
+
 relative_d <- twitter_clean1 %>%
   group_by(Party) %>%
   unnest_tokens(word, Text) %>%
@@ -199,8 +260,11 @@ relative_d <- twitter_clean1 %>%
   select(word, avg_count) %>%
   rename("Word" = "word", "Average Democrat Use" = "avg_count")
 
-#Build a dataset with the number of times a word was used in the dataset by Republicans, adjusted 
-#by the total number of words used by Republicans for a comparitive measure. Stop words and #uninformative words were excluded for data visualization.
+# Build a dataset with the number of times a word was used in the dataset by Republicans, adjusted 
+# by the total number of words used by Republicans for a comparitive measure. Stop words and
+# uninformative words ('https', 't.co', 'amp', 'rt') were excluded for data visualization, 
+# as previously discussed.
+
 relative_r <- twitter_clean1 %>%
   group_by(Party) %>%
   unnest_tokens(word, Text) %>%
@@ -215,23 +279,30 @@ relative_r <- twitter_clean1 %>%
   select(word, avg_count) %>%
   rename("Word" = "word", "Average Republican Use" = "avg_count")
 
-#Join together the number of times on average a word is used by Democrats with that for the Republicans
+# Join together number of times on average a word is used by Democrats with that for the Republicans
+
 relative_comp1 <- full_join(relative_d, relative_r, by = "Word") %>%
   mutate(`Average Democrat Use` = ifelse(is.na(`Average Democrat Use`), 0, `Average Democrat Use`)) %>%
-  mutate(`Average Republican Use` = ifelse(is.na(`Average Republican Use`), 0, `Average Republican Use`)) %>% #Replace all NA values with a count of 0
-  #Filter out any word that was used less than a combined average of .0001 times. Though including all   #words would have been preferable, the ShinyApp interface could not display the massive number of
-  #points in the data visualization built. Thus, words that were used fewer than once every 10,000    
-  #words total were excluded. This number was chosen to maximize speed, while keeping as many 
-  #potentially informative words as possible
+  mutate(`Average Republican Use` = ifelse(is.na(`Average Republican Use`), 0, `Average Republican Use`)) %>% # Replace all NA values with a (more accurate) count of 0
+  
+  # Filter out any word that was used less than a combined average of .0001 times. Though including all   # words would have been preferable, the ShinyApp interface could not display the massive number of
+  # points in the data visualization built. Thus, words that were used fewer than once every 10,000    
+  # words total were excluded. This number was chosen to maximize speed, while keeping as many 
+  # potentially informative words as possible.
+  
   filter(`Average Democrat Use` + `Average Republican Use` > .0001)
 
-#Write an rds file to use in ShinyApp
-write_rds(relative_comp1, "twitter/relative_comp1")
+# Write .rds file of this data to use in ShinyApp
+
+write_rds(relative_comp1, "twitter/data_tables/relative_comp1")
 
 
-#Build dataset that finds the number of positive and negative sentiment words were used by each party
-#(adjusted by the total number of words used)
-#Use Bing sentiment lexicon
+# For building datasets used for sentiment analysis, several different sentiment lexicons were used.
+# This was done to get the fullest and most accurate picture of tweet sentiment as possible
+
+# Build dataset that finds the number of positive and negative sentiment words were used by each party
+# (adjusted by the total number of words used). Use Bing sentiment lexicon.
+
 twitter_bing1 <- twitter_clean1 %>%
   unnest_tokens(word, Text) %>%
   inner_join(get_sentiments("bing")) %>%
@@ -240,13 +311,14 @@ twitter_bing1 <- twitter_clean1 %>%
   left_join(wordcounts1) %>%
   mutate(sentiment_strength = n / total_words)
 
-#Write an rds file to use in ShinyApp
-write_rds(twitter_bing1, "twitter/twitter_bing1")
+# Write .rds file of this data to use in ShinyApp
+
+write_rds(twitter_bing1, "twitter/data_tables/twitter_bing1")
 
 
-#Build dataset that finds the number of positive and negative sentiment words were used by each party
-#(adjusted by the total number of words used)
-#Use nrc sentiment lexicon
+# Build dataset that finds the number of positive and negative sentiment words used by each party
+# (adjusted by the total number of words used). Use nrc sentiment lexicon.
+
 twitter_nrc1 <- twitter_clean1 %>%
   unnest_tokens(word, Text) %>%
   inner_join(get_sentiments("nrc")) %>%
@@ -256,46 +328,41 @@ twitter_nrc1 <- twitter_clean1 %>%
   left_join(wordcounts1) %>%
   mutate(sentiment_strength = n / total_words)
 
-#Write an rds file to use in ShinyApp
-write_rds(twitter_nrc1, "twitter/twitter_nrc1")
+# Write .rds file of this data to use in ShinyApp
+
+write_rds(twitter_nrc1, "twitter/data_tables/twitter_nrc1")
 
 
-#Build dataset that finds the average and net sentiment of each party's words.
-#The afinn sentiment lexicon rates words with integers -5 to 5, increasing with increasing positivity.
-#The net positivity is simply the sum of all these values, while the average positivity is the 
-#average of all these values. Both measures should offer insightful but different positivity results.
-#The net positivity was also scaled to the total number of words from the party because a raw net value
-#may offer inaccurate results when used for comparison by magnitude.
+# Build dataset that finds the average sentiment of each `Party`'s words.
+# The afinn sentiment lexicon rates words with integers -5 to 5, increasing with increasing positivity.
+# Average positivity is the average of all these values. 
+
 twitter_afinn1 <- twitter_clean1 %>%
   unnest_tokens(word, Text) %>%
   inner_join(get_sentiments("afinn")) %>%
   group_by(Party) %>%
-  summarize(average_positivity = mean(score),
-            net_positivity = sum(score)) %>%
-  left_join(wordcounts1) %>%
-  mutate(net_positivity = net_positivity / total_words) %>%
-  select(-total_words) %>%
-  gather(average_positivity, net_positivity, key = "positivity_measure", value = "sentiment_strength")
+  summarize(average_positivity = mean(score))
 
-#Write an rds file to use in ShinyApp
-write_rds(twitter_afinn1, "twitter/twitter_afinn1")   
+# Write .rds file of this data to use in ShinyApp
+
+write_rds(twitter_afinn1, "twitter/data_tables/twitter_afinn1")   
 
 
-#Build dataset that finds the average sentiment of each senator's words.
-#The afinn sentiment lexicon rates words with integers -5 to 5, increasing with increasing positivity.
-#The average positivity is the average of all these values for all words.
+# Build dataset that finds the average sentiment of each senator's words.
+# The afinn sentiment lexicon rates words with integers -5 to 5, increasing with increasing positivity.
+# The average positivity is the average of all these values for all words.
+
 senator_afinn1 <- twitter_clean1 %>%
-        filter(User != "realDonaldTrump") %>%
+        filter(User != "realDonaldTrump") %>% # Remove President's tweets
         unnest_tokens(word, Text) %>%
         inner_join(get_sentiments("afinn")) %>%
         group_by(User) %>%
         summarize(average_positivity = mean(score)) %>%
-        left_join(wordcounts_senator1) %>%
-        select(-total_words) %>%
         left_join(senator_party1, by = "User")
 
-#Write an rds file to use in ShinyApp
-write_rds(senator_afinn1, "twitter/senator_afinn1") 
+# Write .rds file of this data to use in ShinyApp
+
+write_rds(senator_afinn1, "twitter/data_tables/senator_afinn1") 
 
 
 ```

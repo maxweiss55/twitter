@@ -5,8 +5,8 @@ account: maxweiss55
 server: shinyapps.io
 hostUrl: https://api.shinyapps.io/v1
 appId: 545201
-bundleId: 1737511
+bundleId: 1747616
 url: https://maxweiss55.shinyapps.io/twitter/
-when: 1543874885.65181
+when: 1544176689.75535
 asMultiple: FALSE
 asStatic: FALSE
